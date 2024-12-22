@@ -1,0 +1,492 @@
+Song 1 - Artist A
+Song 2 - Artist B
+
+LANCEMENT DU PROJET :
+
+  Voici les étapes détaillées pour configurer et exécuter votre projet sur deux ordinateurs Ubuntu, l'un jouant le rôle de serveur et l'autre de client :
+#1. Préparation des deux machines
+
+    Assurez-vous que Java est installé sur les deux machines.
+        Vérifiez avec :
+
+java -version
+
+Si Java n'est pas installé, installez-le :
+
+    sudo apt update
+    sudo apt install openjdk-17-jdk
+
+Connectez les deux ordinateurs au même réseau.
+
+    Vous pouvez utiliser un réseau Wi-Fi ou une connexion filaire.
+    Testez la connectivité en utilisant ping :
+
+        ping [adresse IP de l'autre machine] 
+
+#2. Configuration du serveur
+
+    Créez un dossier pour le projet :
+
+mkdir -p ~/MusicProject/server
+cd ~/MusicProject/server
+
+Placez les fichiers musicaux (MP3) dans ce dossier ou un sous-dossier :
+
+    Exemple : ~/MusicProject/server/musics/
+
+Créez le fichier MusicServer.java :
+
+    Copiez le code du serveur dans ce fichier.
+
+Compilez le serveur :
+
+javac MusicServer.java
+
+Lancez le serveur :
+
+    Assurez-vous que le port est disponible (par défaut, 12345).
+
+    java MusicServer
+
+#3. Configuration du client
+
+    Créez un dossier pour le projet sur l'autre machine :
+
+mkdir -p ~/MusicProject/client
+cd ~/MusicProject/client
+
+Créez le fichier MusicClient.java :
+
+    Copiez le code du client dans ce fichier.
+    Modifiez l'adresse IP dans le code pour qu'elle pointe vers le serveur :
+
+    String serverIP = "IP_DU_SERVEUR"; // Remplacez par l'IP réelle
+
+Compilez le client :
+
+javac MusicClient.java
+
+Lancez le client :
+
+    java MusicClient
+
+#4. Interaction entre client et serveur
+
+    Lorsque le client s'exécute, il envoie une requête au serveur pour récupérer une musique.
+    Le serveur :
+        Recherche la musique demandée dans sa base de données ou son système de fichiers.
+        Envoie le fichier musical au client.
+    Le client :
+        Télécharge la musique et l’enregistre localement.
+        Vous pouvez ouvrir le fichier téléchargé avec un lecteur comme VLC pour vérifier qu’il a été reçu correctement.
+
+#5. Résolution des problèmes courants
+
+    Problème de connectivité réseau :
+        Assurez-vous que le pare-feu (UFW) n'est pas en train de bloquer les connexions :
+
+    sudo ufw allow 12345
+
+    Vérifiez les IP des machines avec ifconfig ou ip a.
+
+Port déjà utilisé :
+
+    Si le port 12345 est occupé, changez-le dans le code serveur et client :
+
+        int port = 54321; // Exemple de port alternatif
+
+    Erreur "Fichier introuvable" côté serveur :
+        Assurez-vous que le chemin vers les fichiers musicaux est correct.
+
+    Musique corrompue ou non jouable côté client :
+        Vérifiez que les fichiers sont bien transférés en mode binaire (le code le fait déjà avec un buffer de 4096 octets).
+
+#6. Tests et validation
+
+    Lancez le serveur sur la première machine :
+
+java MusicServer
+
+Lancez le client sur la deuxième machine et demandez une musique existante :
+
+java MusicClient
+
+Vérifiez que :
+
+    Le client envoie bien la requête pour une musique.
+    Le serveur répond et envoie le fichier musical.
+    Le client reçoit le fichier et peut le lire localement.
+
+##############################################################################
+
+Code chater :
+private void addMusicCompletionListener() { # ADD MUSIC COMPLETION LISTENER
+    currentClip.addLineListener(event -> {
+        if (event.getType() == LineEvent.Type.STOP) {
+            SwingUtilities.invokeLater(() -> {
+                // Vérifier s'il s'agit de la fin naturelle de la musique
+                if (!isPaused && currentPlayingRow < tableModel.getRowCount() - 1) {
+                    playNextTrack();
+                }
+            });
+        }
+    });
+}
+
+private void playMusicFile(File audioFile) { # PLAY MUSIC FILE VAOVAO
+    try {
+        AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
+        currentClip = AudioSystem.getClip();
+        currentClip.open(audioStream);
+        currentClip.start();
+    } catch (Exception e) {
+        JOptionPane.showMessageDialog(null,
+            "Erreur : Impossible de lire le fichier audio.",
+            "Erreur", JOptionPane.ERROR_MESSAGE);
+        e.printStackTrace();
+    }
+}
+
+public void playMusic(String musicId) { # PLAY MUSIC
+    try {
+        // Arrêter la musique en cours (si elle existe)
+        stopCurrentMusic();
+
+        // Demander le fichier musical au serveur
+        try (Socket socket = new Socket(SERVER_IP, SERVER_PORT);
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+             InputStream in = socket.getInputStream()) {
+
+            // Demander le fichier musical
+            out.println("GET " + musicId);
+
+            // Créer un fichier temporaire pour la musique
+            File tempFile = File.createTempFile("music_", ".mp3");
+            tempFile.deleteOnExit();
+
+            // Sauvegarder le fichier reçu
+            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+            }
+
+            // Jouer le fichier audio et ajouter un listener de complétion
+            playMusicFile(tempFile);
+            addMusicCompletionListener();
+
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(null,
+                "Erreur : Impossible de récupérer ou jouer le fichier.",
+                "Erreur", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    } catch (Exception e) {
+        JOptionPane.showMessageDialog(null,
+            "Erreur : Impossible de récupérer ou jouer le fichier.",
+            "Erreur", JOptionPane.ERROR_MESSAGE);
+        e.printStackTrace();
+    }
+}
+
+private void stopCurrentMusic() { # FONCTION VAOVAO
+    if (currentClip != null) {
+        currentClip.stop();
+        currentClip.close(); // Libérer les ressources du clip
+    }
+}
+
+            ##########################################################
+
+private static void playPreviousTrack() { # prev
+    if (currentClip != null) {
+        currentClip.stop();
+        currentClip.close();
+    }
+
+    if (currentPlayingRow > 0) {
+        currentPlayingRow--;
+        String prevMusicId = tableModel.getValueAt(currentPlayingRow, 0).toString();
+        ButtonEditor editor = (ButtonEditor) musicTable.getColumn("Action").getCellEditor();
+        
+        // Sélectionner la ligne précédente dans le tableau
+        musicTable.setRowSelectionInterval(currentPlayingRow, currentPlayingRow);
+        
+        // Réinitialiser l'état de pause
+        isPaused = false;
+        pauseButton.setText("Pause");
+        
+        editor.playMusic(prevMusicId);
+    }
+}
+
+private static void playNextTrack() { # next
+    if (currentClip != null) {
+        currentClip.stop();
+        currentClip.close();
+    }
+
+    if (currentPlayingRow < tableModel.getRowCount() - 1) {
+        currentPlayingRow++;
+        String nextMusicId = tableModel.getValueAt(currentPlayingRow, 0).toString();
+        ButtonEditor editor = (ButtonEditor) musicTable.getColumn("Action").getCellEditor();
+        
+        // Sélectionner la ligne suivante dans le tableau
+        musicTable.setRowSelectionInterval(currentPlayingRow, currentPlayingRow);
+        
+        // Réinitialiser l'état de pause
+        isPaused = false;
+        pauseButton.setText("Pause");
+        
+        editor.playMusic(nextMusicId);
+    }
+}
+
+private static void togglePause() { # pause
+    if (currentClip != null) {
+        if (!isPaused) {
+            // Mettre en pause
+            pausedPosition = currentClip.getMicrosecondPosition();
+            currentClip.stop();
+            pauseButton.setText("Reprendre");
+            isPaused = true;
+        } else {
+            // Reprendre
+            currentClip.setMicrosecondPosition(pausedPosition);
+            currentClip.start();
+            pauseButton.setText("Pause");
+            isPaused = false;
+        }
+    }
+}
+
+                #########################################################
+
+private void playAudioFile(File audioFile) { # PLAYAUDIOFILE mande tsara le resaka next song
+    try {
+        AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
+        currentClip = AudioSystem.getClip();
+        currentClip.open(audioStream);
+        
+        // Supprimer le listener automatique qui passait au morceau suivant
+        currentClip.start();
+    } catch (Exception e) {
+        JOptionPane.showMessageDialog(null,
+            "Erreur : Impossible de lire le fichier audio.",
+            "Erreur", JOptionPane.ERROR_MESSAGE);
+        e.printStackTrace();
+    }
+}
+
+private void playAudioFile(File audioFile) { # PLAYAUDIOFILE 2 
+    try {
+        AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
+        currentClip = AudioSystem.getClip();
+        currentClip.open(audioStream);
+        
+        // Ajouter un listener pour détecter la fin de la lecture
+        currentClip.addLineListener(event -> {
+            if (event.getType() == LineEvent.Type.STOP) {
+                // S'assurer que l'arrêt est dû à la fin naturelle du morceau
+                if (!isPaused) {
+                    SwingUtilities.invokeLater(() -> {
+                        // Vérifier s'il y a un prochain morceau
+                        if (currentPlayingRow < tableModel.getRowCount() - 1) {
+                            currentPlayingRow++;
+                            String nextMusicId = tableModel.getValueAt(currentPlayingRow, 0).toString();
+                            
+                            // Mettre à jour la sélection dans le tableau
+                            musicTable.setRowSelectionInterval(currentPlayingRow, currentPlayingRow);
+                            
+                            // Fermer le clip actuel
+                            if (currentClip != null) {
+                                currentClip.close();
+                            }
+                            
+                            // Jouer le prochain morceau
+                            ButtonEditor editor = (ButtonEditor) musicTable.getColumn("Action").getCellEditor();
+                            editor.playMusic(nextMusicId);
+                        }
+                    });
+                }
+            }
+        });
+        
+        currentClip.start();
+    } catch (Exception e) {
+        JOptionPane.showMessageDialog(null,
+            "Erreur : Impossible de lire le fichier audio.",
+            "Erreur", JOptionPane.ERROR_MESSAGE);
+        e.printStackTrace();
+    }
+}
+
+private void playAudioFile(File audioFile) { # PLAYAUDIOFILE 3
+    try {
+        AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
+        currentClip = AudioSystem.getClip();
+        currentClip.open(audioStream);
+        
+        // Listener pour détecter la fin naturelle du morceau
+        currentClip.addLineListener(event -> {
+            if (event.getType() == LineEvent.Type.STOP) {
+                // Vérifier si l'arrêt est dû à la fin naturelle du morceau
+                if (!isPaused && event.getSource() == currentClip) {
+                    SwingUtilities.invokeLater(() -> {
+                        // Fermer le clip actuel
+                        if (currentClip != null) {
+                            currentClip.close();
+                        }
+                        
+                        // Vérifier s'il y a un prochain morceau
+                        if (currentPlayingRow < tableModel.getRowCount() - 1) {
+                            currentPlayingRow++;
+                            String nextMusicId = tableModel.getValueAt(currentPlayingRow, 0).toString();
+                            
+                            // Mettre à jour la sélection dans le tableau
+                            musicTable.setRowSelectionInterval(currentPlayingRow, currentPlayingRow);
+                            
+                            // Jouer le prochain morceau
+                            ButtonEditor editor = (ButtonEditor) musicTable.getColumn("Action").getCellEditor();
+                            editor.playMusic(nextMusicId);
+                        }
+                    });
+                }
+            }
+        });
+        
+        currentClip.start();
+    } catch (Exception e) {
+        JOptionPane.showMessageDialog(null,
+            "Erreur : Impossible de lire le fichier audio.",
+            "Erreur", JOptionPane.ERROR_MESSAGE);
+        e.printStackTrace();
+    }
+}
+
+##################################################################################
+
+Code initial de backup :
+        public void playMusic(String musicId) { # PLAY MUSIC
+            try {
+                // Arrêter la musique en cours (si elle existe)
+                if (currentClip != null && currentClip.isRunning()) {
+                    currentClip.stop();  // Arrêter le clip en cours
+                    currentClip.close(); // Libérer les ressources du clip
+                }
+
+                // Demander le fichier musical au serveur
+                try (Socket socket = new Socket(SERVER_IP, SERVER_PORT);
+                     PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                     InputStream in = socket.getInputStream()) {
+
+                    // Demander le fichier musical
+                    out.println("GET " + musicId);
+
+                    // Créer un fichier temporaire pour la musique
+                    File tempFile = File.createTempFile("music_", ".mp3");
+                    tempFile.deleteOnExit();
+
+                    // Sauvegarder le fichier reçu
+                    try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                        byte[] buffer = new byte[1024];
+                        int bytesRead;
+                        while ((bytesRead = in.read(buffer)) != -1) {
+                            fos.write(buffer, 0, bytesRead);
+                        }
+                    }
+
+                    // Jouer le fichier audio
+                    playAudioFile(tempFile);
+
+                } catch (IOException e) {
+                    JOptionPane.showMessageDialog(null,
+                        "Erreur : Impossible de récupérer ou jouer le fichier.",
+                        "Erreur", JOptionPane.ERROR_MESSAGE);
+                    e.printStackTrace();
+                }
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(null,
+                    "Erreur : Impossible de récupérer ou jouer le fichier.",
+                    "Erreur", JOptionPane.ERROR_MESSAGE);
+                e.printStackTrace();
+            }
+        }
+
+    private static void playPreviousTrack() { # prev
+        if (currentPlayingRow > 0) {
+            currentPlayingRow--;
+            String prevMusicId = tableModel.getValueAt(currentPlayingRow, 0).toString();
+            ButtonEditor editor = (ButtonEditor) musicTable.getColumn("Action").getCellEditor();
+            editor.playMusic(prevMusicId);
+        }
+    }
+
+        private static void playNextTrack() { # next
+        if (currentPlayingRow < tableModel.getRowCount() - 1) {
+            currentPlayingRow++;
+            String nextMusicId = tableModel.getValueAt(currentPlayingRow, 0).toString();
+            ButtonEditor editor = (ButtonEditor) musicTable.getColumn("Action").getCellEditor();
+            editor.playMusic(nextMusicId);
+        }
+    }
+
+        private static void togglePause() { # pause
+        if (currentClip != null) {
+            if (!isPaused) {
+                // Mettre en pause
+                pausedPosition = currentClip.getMicrosecondPosition();
+                currentClip.stop();
+                pauseButton.setText("Play");
+                isPaused = true;
+            } else {
+                // Reprendre
+                currentClip.setMicrosecondPosition(pausedPosition);
+                currentClip.start();
+                pauseButton.setText("Pause");
+                isPaused = false;
+            }
+        }
+    }
+
+            private void playAudioFile(File audioFile) { # PLAYAUDIOFILE
+            try {
+                AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
+                currentClip = AudioSystem.getClip();
+                currentClip.open(audioStream);
+                
+                // Ajouter un listener pour la fin de la lecture
+                currentClip.addLineListener(event -> {
+                    if (event.getType() == LineEvent.Type.STOP) {
+                        // Démarrer un nouveau thread pour jouer le prochain morceau
+                        SwingUtilities.invokeLater(() -> {
+                            try {
+                                Thread.sleep(2000); // Pause de 2 secondes
+                                
+                                // Vérifier s'il y a un prochain morceau
+                                if (currentPlayingRow < tableModel.getRowCount() - 1) {
+                                    currentPlayingRow++;
+                                    String nextMusicId = tableModel.getValueAt(currentPlayingRow, 0).toString();
+                                    
+                                    // Simuler un clic sur le bouton "Lire" de la prochaine ligne
+                                    playMusic(nextMusicId);
+                                }
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        });
+                    }
+                });
+                
+                currentClip.start();
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(null,
+                    "Erreur : Impossible de lire le fichier audio.",
+                    "Erreur", JOptionPane.ERROR_MESSAGE);
+                e.printStackTrace();
+            }
+        }
+    }
+}
